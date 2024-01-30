@@ -1,4 +1,4 @@
-package com.sushi;
+package com.sushi.jsonmodelvalidator;
 
 import java.util.HashMap;
 import java.util.Iterator;
