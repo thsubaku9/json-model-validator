@@ -37,9 +37,9 @@ import lombok.extern.slf4j.Slf4j;
 public class JsonRuleManager<E extends Enum<E>> {
     private final Map<String, List<AbstractExpression>> expressionMap;
 
-    private final Map<E, Set<String>> actionRuleMap;
+    private final Map<E, Set<String>> enumRuleMap;
 
-    private final Map<E, Set<String>> actionBypassRuleMap;
+    private final Map<E, Set<String>> enumBypassRuleMap;
 
     private final Map<String, Expression> standaloneJsonModelExpr;
 
@@ -55,8 +55,8 @@ public class JsonRuleManager<E extends Enum<E>> {
             Supplier<Set<String>> activeRuleSet, ObjectMapper mapper) {
         this.expressionMap = new HashMap<>();
         this.standaloneJsonModelExpr = new HashMap<>();
-        this.actionRuleMap = actionRuleMap;
-        this.actionBypassRuleMap = actionBypassRuleMap;
+        this.enumRuleMap = actionRuleMap;
+        this.enumBypassRuleMap = actionBypassRuleMap;
         this.activeRuleSet = activeRuleSet;
         this.mapper = mapper;
     }
@@ -175,7 +175,7 @@ public class JsonRuleManager<E extends Enum<E>> {
     }
 
     public boolean avoidModelEvaluationJsonNode(E enumKey, JsonNode jsonData) {
-        var bypassRules = Optional.ofNullable(actionBypassRuleMap.get(enumKey)).orElse(Set.of());
+        var bypassRules = Optional.ofNullable(enumBypassRuleMap.get(enumKey)).orElse(Set.of());
         var activeRules = activeRuleSet.get();
 
         return bypassRules.stream()
@@ -205,7 +205,7 @@ public class JsonRuleManager<E extends Enum<E>> {
         if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
             return true;
 
-        var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
+        var linkedRules = Optional.ofNullable(enumRuleMap.get(enumKey)).orElse(Set.of());
         var activeRules = activeRuleSet.get();
 
         return linkedRules.stream()
@@ -225,7 +225,7 @@ public class JsonRuleManager<E extends Enum<E>> {
         if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
             return Stream.<Callable<EvalResult>>of().iterator();
 
-        var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
+        var linkedRules = Optional.ofNullable(enumRuleMap.get(enumKey)).orElse(Set.of());
         var activeRules = activeRuleSet.get();
 
         Stream<Callable<EvalResult>> callableStream = linkedRules.stream() 
