@@ -1,6 +1,7 @@
-package com.sushi;
+package com.sushi.jsonmodelvalidator;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,6 +23,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jayway.jsonpath.JsonPath;
 import com.sushi.jsonmodelvalidator.dataclass.AbstractExpression;
+import com.sushi.jsonmodelvalidator.dataclass.EvalResult;
 import com.sushi.jsonmodelvalidator.dataclass.MainExpression;
 import com.sushi.jsonmodelvalidator.dataclass.SubExpression;
 
@@ -165,6 +168,25 @@ public class JsonRuleManager<E extends Enum<E>> {
                 .build();
     }
 
+    /// passthrough rule section ///
+
+    public <T> boolean avoidModelEvaluation(E enumKey, T data) {
+        return avoidModelEvaluationJsonNode(enumKey, mapper.valueToTree(data));
+    }
+
+    public boolean avoidModelEvaluationJsonNode(E enumKey, JsonNode jsonData) {
+        var bypassRules = Optional.ofNullable(actionBypassRuleMap.get(enumKey)).orElse(Set.of());
+        var activeRules = activeRuleSet.get();
+
+        return bypassRules.stream()
+                .filter(activeRules::contains)
+                .anyMatch(expressionKey -> {
+                    return expressionMap.getOrDefault(expressionKey, List.of())
+                            .stream()
+                            .allMatch(it -> it.evaluate(this, jsonData));
+                });
+    }
+
     /// evaluation section ///
 
     /**
@@ -180,6 +202,9 @@ public class JsonRuleManager<E extends Enum<E>> {
     }
 
     private boolean evaluteJsonNode(E enumKey, JsonNode jsonNode) {
+        if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
+            return true;
+
         var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
         var activeRules = activeRuleSet.get();
 
@@ -190,6 +215,29 @@ public class JsonRuleManager<E extends Enum<E>> {
                             .stream()
                             .allMatch(it -> it.evaluate(this, jsonNode));
                 });
+    }
+
+    public <T> Iterator<Callable<EvalResult>> evaluationIterator(E enumKey, T data) {
+        return evaluationIteratorJsonNode(enumKey, mapper.valueToTree(data));
+    }
+
+    public Iterator<Callable<EvalResult>> evaluationIteratorJsonNode(E enumKey, JsonNode jsonNode) {
+        if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
+            return Stream.<Callable<EvalResult>>of().iterator();
+
+        var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
+        var activeRules = activeRuleSet.get();
+
+        Stream<Callable<EvalResult>> callableStream = linkedRules.stream() 
+                .filter(activeRules::contains)
+                .map(expressionKey -> {
+                    List<AbstractExpression> expressionRules = expressionMap.getOrDefault(expressionKey, List.of());
+                   
+                    return () -> new EvalResult(expressionRules.stream().allMatch(it -> it.evaluate(this, jsonNode)), expressionKey);
+                });
+
+
+        return callableStream.iterator();
     }
 
     // coupled with MainExpression

@@ -1,7 +1,7 @@
 package com.sushi.jsonmodelvalidator.dataclass;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.sushi.JsonRuleManager;
+import com.sushi.jsonmodelvalidator.JsonRuleManager;
 
 import io.appform.jsonrules.Expression;
 import lombok.experimental.SuperBuilder;
