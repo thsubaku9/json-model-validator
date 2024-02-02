@@ -202,6 +202,9 @@ public class JsonRuleManager<E extends Enum<E>> {
     }
 
     private boolean evaluteJsonNode(E enumKey, JsonNode jsonNode) {
+        if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
+            return true;
+
         var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
         var activeRules = activeRuleSet.get();
 
@@ -219,7 +222,22 @@ public class JsonRuleManager<E extends Enum<E>> {
     }
 
     public Iterator<Callable<EvalResult>> evaluationIteratorJsonNode(E enumKey, JsonNode jsonNode) {
-        return null;
+        if (avoidModelEvaluationJsonNode(enumKey, jsonNode))
+            return Stream.<Callable<EvalResult>>of().iterator();
+
+        var linkedRules = Optional.ofNullable(actionRuleMap.get(enumKey)).orElse(Set.of());
+        var activeRules = activeRuleSet.get();
+
+        Stream<Callable<EvalResult>> callableStream = linkedRules.stream() 
+                .filter(activeRules::contains)
+                .map(expressionKey -> {
+                    List<AbstractExpression> expressionRules = expressionMap.getOrDefault(expressionKey, List.of());
+                   
+                    return () -> new EvalResult(expressionRules.stream().allMatch(it -> it.evaluate(this, jsonNode)), expressionKey);
+                });
+
+
+        return callableStream.iterator();
     }
 
     // coupled with MainExpression
